@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}New prompt version{% endblock %}
+{% block content %}
+<div class="page-head"><div>
+  <h1>{% if base and base.name %}New version of {{ base.name }}{% else %}New prompt{% endif %}</h1>
+  <p class="sub">Use <code>{{ '{{input}}' }}</code> in the template where the test case input should go.</p>
+</div></div>
+
+<form method="post" class="card form">
+  <div class="row">
+    <label>Name
+      <input name="name" required value="{{ base.name if base else '' }}" placeholder="support-bot">
+    </label>
+    <label>Provider
+      <select name="provider">
+        {% for p in providers %}<option {{ 'selected' if base and base.provider == p }}>{{ p }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Model
+      <input name="model" value="{{ base.model if base else 'mock-small' }}" placeholder="llama-3.1-8b-instant">
+    </label>
+    <label>Temperature
+      <input name="temperature" type="number" step="0.1" min="0" max="2" value="{{ base.temperature if base else 0 }}">
+    </label>
+    <label>Max tokens
+      <input name="max_tokens" type="number" min="1" value="{{ base.max_tokens if base else 300 }}">
+    </label>
+  </div>
+  <label>System prompt
+    <textarea name="system_prompt" rows="5">{{ base.system_prompt if base else '' }}</textarea>
+  </label>
+  <label>User template
+    <textarea name="template" rows="4" required>{{ base.template if base else 'Customer message:\n{{input}}' }}</textarea>
+  </label>
+  <label>What changed and why
+    <input name="notes" value="" placeholder="e.g. shortened answers to cut cost">
+  </label>
+  <button class="btn primary">Save version</button>
+</form>
+{% endblock %}

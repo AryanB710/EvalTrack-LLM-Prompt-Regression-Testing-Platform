@@ -1,0 +1,64 @@
+{% macro verdict(r) -%}
+  {%- if r.review_status == 'approved' -%}<span class="tag pass" title="Failed checks, approved by reviewer">approved</span>
+  {%- elif r.review_status == 'rejected' -%}<span class="tag fail" title="Rejected by reviewer">rejected</span>
+  {%- elif r.error -%}<span class="tag err">error</span>
+  {%- elif r.passed -%}<span class="tag pass">pass</span>
+  {%- else -%}<span class="tag fail">fail</span>
+  {%- endif -%}
+  {%- if r.is_regression %} <span class="tag regress">regression</span>{% endif -%}
+  {%- if r.review_status == 'pending' %} <span class="tag pending">needs review</span>{% endif -%}
+{%- endmacro %}
+
+{% macro run_label(run) -%}
+  #{{ run.id }} {{ run.prompt_name }} v{{ run.version }}
+{%- endmacro %}
+
+{% macro status_tag(status) -%}
+  {%- set cls = {'regression': 'regress', 'fixed': 'pass', 'still_failing': 'fail', 'passing': 'muted', 'new': 'pending', 'removed': 'muted'} -%}
+  <span class="tag {{ cls.get(status, 'muted') }}">{{ status.replace('_', ' ') }}</span>
+{%- endmacro %}
+
+{% macro checks_list(check_json) -%}
+  <ul class="checks">
+  {% for c in check_json | fromjson %}
+    <li class="{{ 'ok' if c.passed else 'no' }}"><code>{{ c.type }}</code> {{ c.detail }}</li>
+  {% else %}
+    <li class="muted">no checks ran</li>
+  {% endfor %}
+  </ul>
+{%- endmacro %}
+
+{% macro review_form(r, next_url) -%}
+  <form class="review" method="post" action="{{ url_for('main.review_result', result_id=r.id) }}">
+    <input type="hidden" name="next" value="{{ next_url }}">
+    <input type="text" name="note" placeholder="Note (why?)" value="{{ r.review_note or '' }}">
+    <button name="action" value="approve" class="btn small">Approve output</button>
+    <button name="action" value="reject" class="btn small danger">Confirm failure</button>
+    {% if r.review_status != 'pending' %}
+      <button name="action" value="flag" class="btn small ghost">Flag for review</button>
+    {% endif %}
+  </form>
+{%- endmacro %}
+
+{# Plain HTML/CSS bar chart. No JS library, so it works offline and in CI screenshots. #}
+{% macro bars(title, labels, series, unit="", max_value=None, prefix="") -%}
+  {%- set ns = namespace(top=max_value or 0) -%}
+  {%- if not max_value %}{% for _, values in series %}{% for v in values %}{% if v > ns.top %}{% set ns.top = v %}{% endif %}{% endfor %}{% endfor %}{% endif -%}
+  <div class="card chart">
+    <h3>{{ title }}</h3>
+    {% for label in labels %}{% set i = loop.index0 %}
+      <div class="bar-group">
+        <div class="bar-label">{{ label }}</div>
+        {% for name, values in series %}
+          <div class="bar-row" title="{{ name }}">
+            <div class="bar s{{ loop.index }}" style="width: {{ (values[i] / ns.top * 100) if ns.top else 0 }}%"></div>
+            <span class="bar-value">{{ prefix }}{{ values[i] }}{{ unit }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endfor %}
+    {% if series | length > 1 %}
+      <div class="legend">{% for name, _ in series %}<span><i class="s{{ loop.index }}"></i>{{ name }}</span>{% endfor %}</div>
+    {% endif %}
+  </div>
+{%- endmacro %}

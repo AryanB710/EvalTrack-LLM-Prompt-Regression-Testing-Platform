@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_macros.html" import verdict, checks_list, review_form %}
+{% block title %}Review{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Review queue</h1>
+    <p class="sub">Failed and regressed outputs land here. Automated checks miss things in both
+      directions, so a person makes the final call. Regressions are listed first.</p>
+  </div>
+</div>
+
+{% for r in items %}
+<div class="card review-item">
+  <div class="review-head">
+    <span class="key">{{ r.case_key }}</span> {{ verdict(r) }}
+    <span class="muted right">
+      <a href="{{ url_for('main.run_detail', run_id=r.run_id) }}#case-{{ r.case_key }}">run #{{ r.run_id }}</a>
+      · {{ r.prompt_name }} v{{ r.version }} · {{ r.dataset_name }}
+    </span>
+  </div>
+  <div class="io">
+    <div><h4>Input</h4><pre>{{ r.input }}</pre></div>
+    <div><h4>Output</h4>{% if r.error %}<pre class="error">{{ r.error }}</pre>{% else %}<pre>{{ r.output }}</pre>{% endif %}</div>
+    {% if r.expected %}<div><h4>Reference</h4><pre class="muted">{{ r.expected }}</pre></div>{% endif %}
+  </div>
+  {{ checks_list(r.check_results) }}
+  {{ review_form(r, url_for('main.review_queue')) }}
+</div>
+{% else %}
+  <div class="empty"><p>Queue is empty. Nothing waiting for review.</p></div>
+{% endfor %}
+{% endblock %}

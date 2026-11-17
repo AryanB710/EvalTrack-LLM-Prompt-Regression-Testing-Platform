@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Prompts{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Prompts</h1><p class="sub">Versions are never edited in place. Changing a prompt creates a new version, so every run can be traced back to the exact text it used.</p></div>
+  <a class="btn primary" href="{{ url_for('main.prompt_new') }}">New prompt</a>
+</div>
+
+{% for name, versions in grouped.items() %}
+<div class="card">
+  <h3>{{ name }}</h3>
+  <table class="grid flat">
+    <thead><tr><th>Version</th><th>Model</th><th>Notes</th><th class="num">Runs</th><th>Created</th><th></th></tr></thead>
+    <tbody>
+    {% for v in versions %}
+      <tr>
+        <td><a href="{{ url_for('main.prompt_detail', pv_id=v.id) }}">v{{ v.version }}</a></td>
+        <td class="muted">{{ v.provider }}/{{ v.model }} · t={{ v.temperature }}</td>
+        <td>{{ v.notes }}</td>
+        <td class="num">{{ v.n_runs }}</td>
+        <td class="muted">{{ v.created_at }}</td>
+        <td><a href="{{ url_for('main.prompt_new', **{'from': v.id}) }}">new version from this</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+  <div class="empty"><p>No prompts yet.</p></div>
+{% endfor %}
+{% endblock %}

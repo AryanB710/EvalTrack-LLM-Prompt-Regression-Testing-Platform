@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_tag, checks_list, run_label %}
+{% block title %}Compare{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Compare runs</h1><p class="sub">Matched case by case on the case key.</p></div>
+</div>
+
+<form method="get" class="toolbar">
+  <label class="inline">Baseline
+    <select name="base">
+      {% for r in runs %}<option value="{{ r.id }}" {{ 'selected' if base and base.id == r.id }}>{{ run_label(r) }} ({{ r.dataset_name }})</option>{% endfor %}
+    </select>
+  </label>
+  <label class="inline">Candidate
+    <select name="cand">
+      {% for r in runs %}<option value="{{ r.id }}" {{ 'selected' if cand and cand.id == r.id }}>{{ run_label(r) }} ({{ r.dataset_name }})</option>{% endfor %}
+    </select>
+  </label>
+  <label class="inline"><input type="checkbox" name="changed" value="1" {{ 'checked' if only_changed }}> only changed</label>
+  <button class="btn primary small">Compare</button>
+</form>
+
+{% if result %}
+  {% if base.dataset_id != cand.dataset_id %}
+    <div class="flash error">These runs used different datasets. Only cases with the same key are compared.</div>
+  {% endif %}
+  <div class="tagstats">
+    {% for status, n in result.counts.items() %}<span class="tagstat">{{ status_tag(status) }} {{ n }}</span>{% endfor %}
+  </div>
+
+  <table class="grid compare">
+    <thead><tr>
+      <th style="width:14%">Case</th><th style="width:8%">Change</th>
+      <th>{{ run_label(base) }}</th><th>{{ run_label(cand) }}</th>
+    </tr></thead>
+    <tbody>
+    {% for row in rows %}
+      <tr class="{{ row.status }}">
+        <td><code>{{ row.case_key }}</code><div class="muted small">{{ row.input }}</div></td>
+        <td>{{ status_tag(row.status) }}</td>
+        {% for side in [row.baseline, row.candidate] %}
+        <td>
+          {% if side %}
+            <pre>{{ side.output or side.error }}</pre>
+            {{ checks_list(side.check_results) }}
+          {% else %}<span class="muted">not in this run</span>{% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="muted">No changed cases.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+{% endif %}
+{% endblock %}

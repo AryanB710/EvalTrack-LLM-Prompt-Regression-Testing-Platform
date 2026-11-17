@@ -1,0 +1,23 @@
+name: ci
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: pytest -q
+
+      # The same gate you'd put in front of a real prompt change. Runs offline
+      # against the mock provider; swap in --db pointing at your own data and
+      # set GROQ_API_KEY as a secret to gate real prompts.
+      - name: Prompt regression gate
+        run: |
+          python -m evaltrack --db ci.db seed
+          python -m evaltrack --db ci.db run --prompt support-bot --dataset tiffinly-support \
+            --baseline 1 --fail-on-regression --min-pass-rate 0.9

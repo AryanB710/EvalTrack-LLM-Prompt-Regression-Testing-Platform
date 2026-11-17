@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{{ dataset.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ dataset.name }}</h1><p class="sub">{{ dataset.description }}</p></div>
+  <div class="actions">
+    <a class="btn" href="{{ url_for('main.dataset_export', dataset_id=dataset.id) }}">Export JSON</a>
+    <a class="btn primary" href="{{ url_for('main.run_new', dataset_id=dataset.id) }}">Run against this</a>
+  </div>
+</div>
+<table class="grid">
+  <thead><tr><th style="width:16%">Key</th><th>Input</th><th style="width:34%">Checks</th><th>Tags</th></tr></thead>
+  <tbody>
+  {% for c in cases %}
+    <tr>
+      <td><code>{{ c.case_key }}</code></td>
+      <td>{{ c.input }}{% if c.expected %}<div class="muted small">Reference: {{ c.expected }}</div>{% endif %}</td>
+      <td>
+        {% for chk in c.checks | fromjson %}
+          <div class="small"><code>{{ chk.type }}</code>
+            {% for k, v in chk.items() if k != 'type' %}<span class="muted">{{ k }}=</span>{{ v }} {% endfor %}
+          </div>
+        {% endfor %}
+      </td>
+      <td>{% for t in c.tags.split(',') if t %}<span class="tag muted">{{ t }}</span> {% endfor %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

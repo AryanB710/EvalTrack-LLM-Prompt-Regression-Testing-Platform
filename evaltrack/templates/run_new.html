@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from "_macros.html" import run_label %}
+{% block title %}New run{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>New run</h1>
+  <p class="sub">Runs every case in the dataset through the prompt version, then scores the outputs.</p></div></div>
+
+{% if not versions or not datasets %}
+  <div class="empty"><p>You need at least one
+    <a href="{{ url_for('main.prompt_new') }}">prompt version</a> and one
+    <a href="{{ url_for('main.datasets') }}">dataset</a> first.</p></div>
+{% else %}
+<form method="post" class="card form narrow">
+  <label>Prompt version
+    <select name="prompt_version_id" required>
+      {% for v in versions %}
+        <option value="{{ v.id }}" {{ 'selected' if v.id == selected_pv }}>{{ v.name }} v{{ v.version }} · {{ v.provider }}/{{ v.model }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Dataset
+    <select name="dataset_id" required>
+      {% for d in datasets %}<option value="{{ d.id }}" {{ 'selected' if d.id == selected_ds }}>{{ d.name }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Compare against
+    <select name="baseline">
+      <option value="auto">Latest run of another version of this prompt (recommended)</option>
+      <option value="none">No baseline</option>
+      {% for r in past_runs %}<option value="{{ r.id }}">{{ run_label(r) }} on {{ r.dataset_name }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Parallel requests
+    <input type="number" name="workers" value="4" min="1" max="16">
+    <span class="hint">Lower this if the provider rate-limits you. Retries with backoff handle the occasional 429.</span>
+  </label>
+  <button class="btn primary">Start run</button>
+</form>
+{% endif %}
+{% endblock %}

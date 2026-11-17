@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% from "_macros.html" import verdict, checks_list, review_form, run_label %}
+{% block title %}Run #{{ run.id }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ run_label(run) }}</h1>
+    <p class="sub">
+      on <a href="{{ url_for('main.dataset_detail', dataset_id=run.dataset_id) }}">{{ run.dataset_name }}</a>
+      · {{ run.provider }}/{{ run.model }} · started {{ run.started_at }} · {{ run.triggered_by }}
+      {% if baseline %} · compared with <a href="{{ url_for('main.run_detail', run_id=baseline.id) }}">{{ run_label(baseline) }}</a>{% endif %}
+    </p>
+  </div>
+  <div class="actions">
+    {% if baseline %}<a class="btn" href="{{ url_for('main.compare', base=baseline.id, cand=run.id, changed=1) }}">Side by side</a>{% endif %}
+    <a class="btn" href="{{ url_for('main.run_export', run_id=run.id) }}">Export CSV</a>
+    <a class="btn" href="{{ url_for('main.run_new', prompt_version_id=run.prompt_version_id, dataset_id=run.dataset_id) }}">Re-run</a>
+  </div>
+</div>
+
+{% if run.status == 'failed' %}<div class="flash error">This run failed: {{ run.error }}</div>{% endif %}
+
+{% set d = comparison.deltas if comparison else None %}
+<div class="stats">
+  <div class="stat">
+    <span class="label">Pass rate</span>
+    <span class="value">{{ (run.passed / run.total) | pct if run.total else '–' }}</span>
+    {% if d %}{% set x = delta(d.pass_rate, ' pts', lower_is_better=False) %}<span class="delta {{ x.cls }}">{{ x.text }}</span>{% endif %}
+  </div>
+  <div class="stat">
+    <span class="label">After review</span>
+    <span class="value">{{ (run.reviewed_passed / run.total) | pct if run.total else '–' }}</span>
+    <span class="delta neutral">{{ run.pending or 0 }} pending</span>
+  </div>
+  <div class="stat">
+    <span class="label">Regressions</span>
+    <span class="value {{ 'bad' if run.regressions }}">{{ run.regressions if baseline else '–' }}</span>
+    {% if baseline %}<span class="delta neutral">{{ run.fixes }} fixed</span>{% endif %}
+  </div>
+  <div class="stat">
+    <span class="label">Avg / p95 latency</span>
+    <span class="value">{{ run.avg_latency_ms | ms }}</span>
+    <span class="delta neutral">p95 {{ run.p95_latency_ms | ms }}</span>
+    {% if d %}{% set x = delta(d.avg_latency_pct) %}<span class="delta {{ x.cls }}">{{ x.text }}</span>{% endif %}
+  </div>
+  <div class="stat">
+    <span class="label">Tokens</span>
+    <span class="value">{{ "{:,}".format(run.prompt_tokens + run.completion_tokens) }}</span>
+    <span class="delta neutral">{{ run.prompt_tokens }} in / {{ run.completion_tokens }} out</span>
+    {% if d %}{% set x = delta(d.tokens_pct) %}<span class="delta {{ x.cls }}">{{ x.text }}</span>{% endif %}
+  </div>
+  <div class="stat">
+    <span class="label">Cost</span>
+    <span class="value">{{ run.cost_usd | usd }}</span>
+    {% if d %}{% set x = delta(d.cost_pct) %}<span class="delta {{ x.cls }}">{{ x.text }}</span>{% endif %}
+  </div>
+</div>
+
+{% if comparison and comparison.regressions %}
+<div class="callout bad">
+  <strong>{{ comparison.regressions | length }} case{{ 's' if comparison.regressions | length != 1 }} passed in the baseline and fail now:</strong>
+  {% for r in comparison.regressions %}<a href="#case-{{ r.case_key }}"><code>{{ r.case_key }}</code></a>{{ ', ' if not loop.last }}{% endfor %}.
+  {% if run.prompt_tokens + run.completion_tokens < baseline.prompt_tokens + baseline.completion_tokens %}
+    It is cheaper, but check whether the savings are worth these failures.
+  {% endif %}
+</div>
+{% elif comparison %}
+<div class="callout good">No regressions against {{ run_label(baseline) }}.</div>
+{% endif %}
+
+{% if tag_stats %}
+<div class="tagstats">
+  {% for tag, s in tag_stats %}
+    <span class="tagstat {{ 'bad' if s[0] < s[1] }}"><b>{{ tag }}</b> {{ s[0] }}/{{ s[1] }}</span>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="tabs">
+  {% for key, label in [('all', 'All'), ('failed', 'Failing'), ('regressions', 'Regressions'), ('pending', 'Needs review'), ('retried', 'Retried')] %}
+    <a href="?show={{ key }}" class="{{ 'on' if show == key }}">{{ label }}</a>
+  {% endfor %}
+  <span class="muted right">showing {{ results | length }} of {{ all_count }}</span>
+</div>
+
+{% for r in results %}
+<details class="result" id="case-{{ r.case_key }}" {{ 'open' if r.is_regression or (show != 'all' and loop.index <= 3) }}>
+  <summary>
+    <span class="key">{{ r.case_key }}</span>
+    {{ verdict(r) }}
+    <span class="muted right">{{ r.latency_ms | ms }}{% if r.attempts > 1 %} · {{ r.attempts }} attempts{% endif %}</span>
+  </summary>
+  <div class="result-body">
+    <div class="io">
+      <div><h4>Input</h4><pre>{{ r.input }}</pre></div>
+      <div>
+        <h4>Output</h4>
+        {% if r.error %}<pre class="error">{{ r.error }}</pre>{% else %}<pre>{{ r.output }}</pre>{% endif %}
+      </div>
+      {% if r.expected %}<div><h4>Reference answer</h4><pre class="muted">{{ r.expected }}</pre></div>{% endif %}
+    </div>
+    <h4>Checks</h4>
+    {{ checks_list(r.check_results) }}
+    <p class="muted small">{{ r.prompt_tokens }} prompt + {{ r.completion_tokens }} completion tokens · {{ r.cost_usd | usd }}
+      {% if r.review_note %} · reviewer note: “{{ r.review_note }}”{% endif %}</p>
+    {{ review_form(r, url_for('main.run_detail', run_id=run.id, show=show) ~ '#case-' ~ r.case_key) }}
+  </div>
+</details>
+{% else %}
+  <p class="muted">Nothing matches this filter.</p>
+{% endfor %}
+{% endblock %}

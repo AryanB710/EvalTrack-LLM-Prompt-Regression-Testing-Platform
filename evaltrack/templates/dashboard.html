@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% from "_macros.html" import run_label, bars %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Prompt versions at a glance</h1>
+    <p class="sub">Latest completed run of each prompt version on the selected dataset.</p>
+  </div>
+  {% if datasets %}
+  <form method="get">
+    <label class="inline">Dataset
+      <select name="dataset" onchange="this.form.submit()">
+        {% for d in datasets %}<option value="{{ d.id }}" {{ 'selected' if d.id == dataset_id }}>{{ d.name }}</option>{% endfor %}
+      </select>
+    </label>
+  </form>
+  {% endif %}
+</div>
+
+{% if not latest %}
+  <div class="empty">
+    <p>No runs yet. Load the demo with <code>python -m evaltrack seed</code>, or
+       <a href="{{ url_for('main.datasets') }}">upload a dataset</a> and
+       <a href="{{ url_for('main.prompt_new') }}">create a prompt</a>.</p>
+  </div>
+{% else %}
+<table class="grid">
+  <thead><tr>
+    <th>Version</th><th>Model</th><th class="num">Pass rate</th><th class="num">After review</th>
+    <th class="num">Regressions</th><th class="num">Avg latency</th><th class="num">p95</th>
+    <th class="num">Tokens / case</th><th class="num">Cost / 1k cases</th><th></th>
+  </tr></thead>
+  <tbody>
+  {% for r in latest %}
+    <tr>
+      <td><a href="{{ url_for('main.prompt_detail', pv_id=r.prompt_version_id) }}">{{ r.prompt_name }} v{{ r.version }}</a></td>
+      <td class="muted">{{ r.provider }}/{{ r.model }}</td>
+      <td class="num">{{ (r.passed / r.total) | pct }}</td>
+      <td class="num">{{ (r.reviewed_passed / r.total) | pct }}</td>
+      <td class="num">{% if r.baseline_run_id %}<span class="{{ 'bad' if r.regressions else 'good' }}">{{ r.regressions }}</span>{% else %}<span class="muted">baseline</span>{% endif %}</td>
+      <td class="num">{{ r.avg_latency_ms | ms }}</td>
+      <td class="num">{{ r.p95_latency_ms | ms }}</td>
+      <td class="num">{{ ((r.prompt_tokens + r.completion_tokens) / r.total) | round | int }}</td>
+      <td class="num">{{ (r.cost_usd / r.total * 1000) | usd }}</td>
+      <td><a href="{{ url_for('main.run_detail', run_id=r.id) }}">run #{{ r.id }} →</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<div class="charts">
+  {{ bars("Quality (% of cases passing)", chart.labels, [("Automated", chart.pass_rate), ("After review", chart.reviewed_rate)], "%", 100) }}
+  {{ bars("Latency (ms)", chart.labels, [("Avg", chart.avg_latency), ("p95", chart.p95_latency)], " ms") }}
+  {{ bars("Cost per 1,000 cases (USD)", chart.labels, [("Cost", chart.cost_per_1k)], "", None, "$") }}
+</div>
+{% endif %}
+
+<h2>Recent runs</h2>
+<table class="grid">
+  <thead><tr><th>Run</th><th>Dataset</th><th>Status</th><th class="num">Passed</th><th class="num">Regressions</th><th class="num">Pending review</th><th>Started</th><th>By</th></tr></thead>
+  <tbody>
+  {% for r in recent %}
+    <tr>
+      <td><a href="{{ url_for('main.run_detail', run_id=r.id) }}">{{ run_label(r) }}</a></td>
+      <td>{{ r.dataset_name }}</td>
+      <td><span class="tag {{ 'pass' if r.status == 'completed' else 'fail' if r.status == 'failed' else 'pending' }}">{{ r.status }}</span></td>
+      <td class="num">{{ r.passed }}/{{ r.total }}</td>
+      <td class="num">{{ r.regressions if r.baseline_run_id else '–' }}</td>
+      <td class="num">{{ r.pending or 0 }}</td>
+      <td class="muted">{{ r.started_at }}</td>
+      <td class="muted">{{ r.triggered_by }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="8" class="muted">Nothing here yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Datasets{% endblock %}
+{% block content %}
+<div class="page-head"><div>
+  <h1>Datasets</h1>
+  <p class="sub">Reusable sets of test cases. Each case has an input, an optional reference answer and the checks it must pass.</p>
+</div></div>
+
+<div class="split">
+  <table class="grid">
+    <thead><tr><th>Name</th><th>Description</th><th class="num">Cases</th><th class="num">Runs</th><th></th></tr></thead>
+    <tbody>
+    {% for d in datasets %}
+      <tr>
+        <td><a href="{{ url_for('main.dataset_detail', dataset_id=d.id) }}">{{ d.name }}</a></td>
+        <td class="muted">{{ d.description }}</td>
+        <td class="num">{{ d.n_cases }}</td>
+        <td class="num">{{ d.n_runs }}</td>
+        <td><a href="{{ url_for('main.dataset_export', dataset_id=d.id) }}">export</a></td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="muted">No datasets yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <form method="post" enctype="multipart/form-data" class="card form">
+    <h3>Import</h3>
+    <label>File (.json or .csv)<input type="file" name="file" accept=".json,.csv" required></label>
+    <label>Name<input name="name" placeholder="defaults to the file name"></label>
+    <label>Description<input name="description"></label>
+    <p class="hint">Uploading to an existing name adds new cases and updates ones with the same key.
+      See <code>sample_data/</code> for the format.</p>
+    <button class="btn primary">Import</button>
+  </form>
+</div>
+{% endblock %}
